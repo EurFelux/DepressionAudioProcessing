@@ -18,6 +18,7 @@ class ECA(nn.Module):
         y = self.conv(y.squeeze(-1).transpose(-1, -2)).transpose(-1, -2).unsqueeze(-1)
         return x * y.expand_as(x)
 
+
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
@@ -29,18 +30,37 @@ class SpatialAttention(nn.Module):
         y = self.sigmoid(y)
         return x * y.expand_as(x)
 
-# TODO: 实现CNN
+
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
-        self.net = nn.Sequential(
+        self.mod_seq_1 = nn.Sequential(
             SpatialAttention(),
             nn.Conv2d(in_channels=3, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
+            nn.Tanh(),
+            nn.MaxPool2d((1, 2))
         )
+        self.eca = ECA(32)
+        self.mod_seq_2 = nn.Sequential(
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 1), stride=(1, 1), padding=1),
+            nn.Tanh(),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 1), stride=(1, 1), padding=1),
+            nn.Tanh(),
+            nn.MaxPool2d((1, 2)),
+            nn.Flatten()
+        )
+        self.dense = nn.Linear(64 * 4 * 4, 2)
+        self.softmax = nn.Softmax()
 
     def forward(self, x):
-        x = self.net(x)
-        return x
+        x = self.mod_seq_1(x)
+        x = x + self.eca(x)
+        x = self.mod_seq_2(x)
+        y = self.dense(x)
+        y_prob = self.softmax(y)
+        return y, y_prob
 
 
 

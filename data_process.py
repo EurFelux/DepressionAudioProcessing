@@ -8,6 +8,7 @@ NUM_QUESTION = 29
 # 选择的特征序号
 b = [1492, 227, 1403, 174, 468, 1493, 1036, 417, 607, 612, 45, 15, 1277, 872, 153, 1491, 619, 685, 305, 529]
 
+
 def read_file(path, i):
     """
     读取opensmile提取的特征文件
@@ -15,7 +16,8 @@ def read_file(path, i):
     :param i: 受试者编号
     :return: 特征序列
     """
-    txt_path = path + 'audio_feature0{}.txt'.format(i)
+    feature_name = f'audio_feature{str(subject_no).rjust(3, "0")}.txt'
+    txt_path = os.path.join(path, feature_name)
     # mat_path = path + 'whisper_features0{}.mat'.format(i)
     f = open(txt_path)
     lines = f.readlines()

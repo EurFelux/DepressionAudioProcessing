@@ -216,6 +216,7 @@ for seed in range(101, 1001):
         for n in range(len(Y_test)):
             test_label_1.append(int(Y_test[n][1]))
 
+        # 除去第一维
         input_shape = X_train.shape[1:]
 
         # -------------------------------
