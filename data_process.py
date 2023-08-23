@@ -9,11 +9,11 @@ NUM_QUESTION = 29
 b = [1492, 227, 1403, 174, 468, 1493, 1036, 417, 607, 612, 45, 15, 1277, 872, 153, 1491, 619, 685, 305, 529]
 
 
-def read_file(path, i):
+def read_file(path, subject_no):
     """
     读取opensmile提取的特征文件
     :param path:特征路径
-    :param i: 受试者编号
+    :param subject_no: 受试者编号
     :return: 特征序列
     """
     feature_name = f'audio_feature{str(subject_no).rjust(3, "0")}.txt'
