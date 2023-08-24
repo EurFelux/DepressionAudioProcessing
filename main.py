@@ -29,13 +29,12 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
     train_features, val_features, train_labels, val_labels = process_data(args.feature_dir)
     result = []
     for question_no in range(1, NUM_QUESTIONS):
-        labels = train_labels[question_no]
         data_iter = get_dataloader(train_features[question_no], train_labels[question_no], batch_size=batch_size)
         cur_val_features = val_features[question_no]
         cur_val_labels = val_labels[question_no]
 
         model = CNN()
-        optimizer = Adam(model.parameters(), lr=lr)
+        optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         loss_fn = nn.CrossEntropyLoss()
         train_one_model(model, data_iter, optimizer, loss_fn, num_epochs)
         acc, TP, FP, TN, FN = validate(model, cur_val_features, cur_val_labels)
