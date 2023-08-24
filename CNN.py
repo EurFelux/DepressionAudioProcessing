@@ -198,26 +198,35 @@ for seed in range(101, 1001):
         #    train_data = readFile_byindex(m,args.feature_dir + '/depression_data_enhance/',i)
         #    data.append(train_data)
         #    Y_train.append(1)
-        X_train = np.array(data)
-        Y_train = np.array(Y_train)
-        X_train = np.expand_dims(X_train[:, 0:20], axis=2)
-        Y_train = Y_train.reshape((len(Y_train),))
+        X_train = np.array(data) # (38, 20)
+        Y_train = np.array(Y_train) # (38,)
+        X_train = np.expand_dims(X_train[:, 0:20], axis=2) # (38, 20, 1)
+        Y_train = Y_train.reshape((len(Y_train),)) # (38,) no change
 
         encoder = LabelEncoder()
-        Y_train_encoded = encoder.fit_transform(Y_train)
-        Y_train = np_utils.to_categorical(Y_train_encoded)
+        Y_train_encoded = encoder.fit_transform(Y_train) # no change
+        Y_train = np_utils.to_categorical(Y_train_encoded) # (38, 2), to one-hot vectors
 
+        # 每次都随机地分为训练集和验证集
         X_train, X_test, Y_train, Y_test = train_test_split(X_train, Y_train, test_size=0.25, random_state=5)
 
+        # 扩展出channel维度
         X_train = np.expand_dims(X_train, axis=1).astype(np.float32)
         X_test = np.expand_dims(X_test, axis=1).astype(np.float32)
         test_label_1 = []
         test_label_2 = []
+
+        # [1, 0]会得到0，[0, 1]会得到1，实际上就是把one-hot转换回去
         for n in range(len(Y_test)):
             test_label_1.append(int(Y_test[n][1]))
 
         # 除去第一维
         input_shape = X_train.shape[1:]
+
+        # 总的来说，在开始训练以前，得到了X_train, Y_train, X_test, Y_test, input_shape
+        # 其中X_train, X_test的shape为(train_len, 1, 20, 1), (test_len, 1, 20, 1)
+        # Y_train, Y_test的shape为(train_len, 2), (test_len, 2)
+        # input_shape为(1, 20, 1)
 
         # -------------------------------
         # Model
@@ -295,6 +304,7 @@ for seed in range(101, 1001):
         result[m - 1].append(result_1)
         result[m - 1].append(result_2)
 
+    # 到这里为止获取了NUM_QUESTIONS个模型，每个模型都有一个灵敏度和一个特异性
     result_specificity = np.array(result)
     result_specificity = np.lexsort(-result_specificity.T)
     for i in range(len(result_specificity)):

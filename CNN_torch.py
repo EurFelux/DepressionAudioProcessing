@@ -1,6 +1,11 @@
 # -*- coding: utf8 -*-
+import os
+
+import torch
 import torch.nn as nn
 import numpy as np
+from ffc import FFC_BN_ACT
+
 
 # 参照ECA-Net论文改为nn.Module的实现
 class ECA(nn.Module):
@@ -36,7 +41,9 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
         self.mod_seq_1 = nn.Sequential(
             SpatialAttention(),
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
+            # nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
+            FFC_BN_ACT(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1,
+                       activation_layer=nn.ReLU(), ratio_gin=0.5, ratio_gout=0.5),
             nn.ReLU(),
             nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
             nn.Tanh(),
@@ -59,8 +66,17 @@ class CNN(nn.Module):
         x = x + self.eca(x)
         x = self.mod_seq_2(x)
         y = self.dense(x)
-        y_prob = self.softmax(y)
-        return y, y_prob
+        return y
+
+    def predict(self, x):
+        y_prob = self.softmax(self.forward(x))
+        return y_prob.argmax(dim=1)
+
+    def save(self, directory, name):
+        torch.save(self.state_dict(), os.path.join(directory, name))
 
 
-
+def load_model(path):
+    model = CNN()
+    model.load_state_dict(torch.load(path))
+    return model

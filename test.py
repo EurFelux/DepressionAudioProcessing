@@ -1,5 +1,10 @@
-from data_process import read_file
+from data_process import process_data
 
 train_path = r'/home/wangxu/project/Audioprocessing/2022data/train_enhance'
-arr = read_file(train_path, 1)
-print(arr.shape)
+
+train_features, val_features, train_labels, val_labels = process_data(train_path, split=True, to_tensor=False)
+
+print(train_features.shape)
+print(val_features.shape)
+print(train_labels.shape)
+print(val_labels.shape)
