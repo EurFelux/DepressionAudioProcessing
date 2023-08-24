@@ -12,6 +12,7 @@ from CNN_torch import CNN, load_model
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
+# 设置参数转换
 parser = argparse.ArgumentParser()
 parser.add_argument("--feature_dir", default="/home/wangxu/project/Audioprocessing/2022data/train_enhance")
 parser.add_argument("--output_path", default="/home/wangjiyuan/dev/DepressionAudioProcessing/models")
@@ -25,6 +26,15 @@ def main():
 
 
 def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=1):
+    """
+    在特定种子下完成一次完整的流程
+    :param seed:
+    :param lr: 训练使用的学习率
+    :param weight_decay: 权重衰退设置值
+    :param num_epochs: 模型训练的Epochs数
+    :param batch_size: 批量大小
+    :return: True表示找到了好的模型，False表示没找到
+    """
     set_seeds(seed)
     train_features, val_features, train_labels, val_labels = process_data(args.feature_dir)
     result = []
@@ -106,7 +116,7 @@ def train_one_model(model, data_iter, optimizer, loss_fn, num_epochs):
     # TODO: 也许可以在这里加入观察训练的过程。数据量少，有过拟合的可能，加点早停或许会有用。
 
 
-def validate(model, val_features, val_labels):
+def validate(model: CNN, val_features, val_labels):
     """
     获取模型的相关指标
     :param model: 模型
@@ -136,6 +146,12 @@ def validate(model, val_features, val_labels):
 
 
 def test(model_indices, index_threshold):
+    """
+    测试模型
+    :param model_indices:
+    :param index_threshold:
+    :return:
+    """
     test_result = []
 
     for idx in range(1, NUM_TEST_SUBJECTS + 1):
@@ -186,7 +202,7 @@ def test(model_indices, index_threshold):
 
     our_result = []
 
-    for idx in range(1, 17):
+    for idx in range(1, NUM_OURS_SUBJECTS + 1):
         data_test = read_file(args.feature_dir + '/health_data_enhance/', idx)
 
         health = 0
@@ -216,7 +232,7 @@ def test(model_indices, index_threshold):
     our_p1 = 0  # 真阴性人数
     our_p2 = 0  # 假阳性人数
 
-    for i in range(0, 16):
+    for i in range(0, NUM_OURS_SUBJECTS):
         if our_result[i] == 0:
             our_res += 1
             our_p1 += 1

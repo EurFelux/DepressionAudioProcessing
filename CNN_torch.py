@@ -77,6 +77,11 @@ class CNN(nn.Module):
 
 
 def load_model(path):
+    """
+    加载模型
+    :param path: 模型路径
+    :return: 模型实例
+    """
     model = CNN()
     model.load_state_dict(torch.load(path))
     return model
