@@ -6,7 +6,7 @@ import numpy as np
 from torch.optim import Adam
 import torch.nn as nn
 from utils import set_seeds
-from constants import NUM_QUESTIONS, NUM_TEST_SUBJECTS, NUM_OURS_SUBJECTS
+from constants import NUM_QUESTIONS, NUM_TEST_SUBJECTS, NUM_OURS_SUBJECTS, NUM_TEST_DEPRESSION
 from data_process import read_file, process_data, get_dataloader
 from CNN_torch import CNN, load_model
 
@@ -14,7 +14,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
 # 设置参数转换
 parser = argparse.ArgumentParser()
-parser.add_argument("--feature_dir", default="/home/wangxu/project/Audioprocessing/2022data/train_enhance")
+parser.add_argument("--feature_dir", default="/home/wangjiyuan/data/2022data/train_enhance")
 parser.add_argument("--output_path", default="/home/wangjiyuan/dev/DepressionAudioProcessing/models")
 args = parser.parse_args()
 
@@ -53,7 +53,7 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
         specificity = TN / (TN + FP)
         result.append([sensitivity, specificity])
 
-    # 这部分看不懂，先挪过来
+    # 获取模型优劣排序
     result_specificity = np.array(result)
     result_specificity = np.lexsort(-result_specificity.T)
     for i in range(len(result_specificity)):
@@ -67,17 +67,21 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
     print(result_specificity)
     print(result_sensitivity)
 
+    # 选择模型
     index_threshold = 2
 
     model_indices = []
+    # 加入灵敏度最高的两个模型
     for i in range(index_threshold):
         model_indices.append(result_sensitivity[i])
-    for i in range(NUM_QUESTIONS):
+    # 再加入一个特异度最高的模型
+    for i in range(len(result)):
         if len(model_indices) == (index_threshold * 2 - 1):
             break
         if result_specificity[i] not in model_indices:
             model_indices.append(result_specificity[i])
     print(model_indices)
+    # 最后挑选了3个模型出来
 
     # 测试
     res, our_res = test(model_indices, index_threshold)
@@ -177,28 +181,28 @@ def test(model_indices, index_threshold):
     res = 0
 
     # 计算灵敏度
-    q1 = 0  # 真阳性人数
-    q2 = 0  # 假阴性人数
+    TP = 0  # 真阳性人数
+    FN = 0  # 假阴性人数
 
     # 计算特异性
-    p1 = 0  # 真阴性人数
-    p2 = 0  # 假阳性人数
+    TN = 0  # 真阴性人数
+    FP = 0  # 假阳性人数
 
-    for i in range(0, 6):
+    for i in range(0, NUM_TEST_DEPRESSION):
         if test_result[i] == 1:
             res += 1
-            q1 += 1
+            TP += 1
         else:
-            q2 += 1
-    for i in range(6, 13):
+            FN += 1
+    for i in range(NUM_TEST_DEPRESSION, NUM_TEST_SUBJECTS):
         if test_result[i] == 0:
             res += 1
-            p1 += 1
+            TN += 1
         else:
-            p2 += 1
+            FP += 1
 
-    print('test灵敏度：' + str(q1 / (q1 + q2)))
-    print('test特异性：' + str(p1 / (p1 + p2)))
+    print('test灵敏度：' + str(TP / (TP + FN)))
+    print('test特异性：' + str(TN / (TN + FP)))
 
     our_result = []
 
@@ -225,20 +229,23 @@ def test(model_indices, index_threshold):
     our_res = 0
 
     # 计算灵敏度
-    our_q1 = 0  # 真阳性人数
-    our_q2 = 0  # 假阴性人数
+    our_TP = 0  # 真阳性人数
+    our_FN = 0  # 假阴性人数
 
     # 计算特异性
-    our_p1 = 0  # 真阴性人数
-    our_p2 = 0  # 假阳性人数
+    our_TN = 0  # 真阴性人数
+    our_FP = 0  # 假阳性人数
 
     for i in range(0, NUM_OURS_SUBJECTS):
         if our_result[i] == 0:
             our_res += 1
-            our_p1 += 1
+            our_TN += 1
         else:
-            our_p2 += 1
+            our_FP += 1
 
-    print('our特异性：' + str(our_p1 / (our_p1 + our_p2)))
+    print('our特异性：' + str(our_TN / (our_TN + our_FP)))
 
     return res, our_res
+
+if __name__ == '__main__':
+    main()

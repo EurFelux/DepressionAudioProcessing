@@ -25,9 +25,19 @@ NUM_TRAIN_SUBJECTS = 38
 训练集的受试者数量。
 """
 
+NUM_TRAIN_DEPRESSION = 16
+"""
+训练集中的抑郁症受试者数量。前NUM_TRAIN_DEPRESSION个样本为抑郁症患者，后面为健康受试者。
+"""
+
 NUM_TEST_SUBJECTS = 13
 """
 测试集的受试者数量。
+"""
+
+NUM_TEST_DEPRESSION = 6
+"""
+测试集中的抑郁症受试者数量。前NUM_TEST_DEPRESSION个样本为抑郁症患者，后面为健康受试者。
 """
 
 NUM_OURS_SUBJECTS = 16
@@ -35,7 +45,3 @@ NUM_OURS_SUBJECTS = 16
 我们的数据集中的受试者数量。
 """
 
-NUM_DEPRESSION = 16
-"""
-训练集中的抑郁症受试者数量。前NUM_DEPRESSION个样本为抑郁症患者，后面为健康受试者。
-"""

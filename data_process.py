@@ -6,7 +6,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
 
-from constants import TO_DEL_LINES, NUM_QUESTIONS, NUM_DEPRESSION, NUM_TRAIN_SUBJECTS
+from constants import TO_DEL_LINES, NUM_QUESTIONS, NUM_TRAIN_DEPRESSION, NUM_TRAIN_SUBJECTS
 
 b = [1492, 227, 1403, 174, 468, 1493, 1036, 417, 607, 612, 45, 15, 1277, 872, 153, 1491, 619, 685, 305, 529]
 """
@@ -98,7 +98,7 @@ def process_data(feature_dir, split=True, to_tensor=True):
     # NOTE:预计获取到的特征形状为：(NUM_QUESTIONS, NUM_SUBJECTS, DIM_FEATURES)
 
     # 获取标签。每个问题的标签都是相同的。
-    labels = np.array([1 if i <= NUM_DEPRESSION else 0 for i in range(1, NUM_TRAIN_SUBJECTS + 1)])
+    labels = np.array([1 if i <= NUM_TRAIN_DEPRESSION else 0 for i in range(1, NUM_TRAIN_SUBJECTS + 1)])
 
     # 获取特征
     train_features = []

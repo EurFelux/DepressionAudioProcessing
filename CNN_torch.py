@@ -41,9 +41,9 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
         self.mod_seq_1 = nn.Sequential(
             SpatialAttention(),
-            # nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
-            FFC_BN_ACT(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1,
-                       activation_layer=nn.ReLU(), ratio_gin=0.5, ratio_gout=0.5),
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
+            # FFC_BN_ACT(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1,
+            #            activation_layer=nn.ReLU(), ratio_gin=0.5, ratio_gout=0.5),
             nn.ReLU(),
             nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
             nn.Tanh(),

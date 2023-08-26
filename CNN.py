@@ -305,16 +305,23 @@ for seed in range(101, 1001):
         result[m - 1].append(result_2)
 
     # 到这里为止获取了NUM_QUESTIONS个模型，每个模型都有一个灵敏度和一个特异性
+    # result是一个二维数组，第一维是模型编号，第二维是[灵敏度，特异性]
+    # result的形状为(num_models, 2)
     result_specificity = np.array(result)
+    # 取负转置以后，第一行表示灵敏度，第二行表示特异性。原本是升序，取负以后就变成降序了。
+    # 经过lexsort，
     result_specificity = np.lexsort(-result_specificity.T)
+    # 序号+1，转换为 1-based
     for i in range(len(result_specificity)):
         result_specificity[i] += 1
+    # 排序优先按照特异性，再按照灵敏度
 
     result_sensitivity = np.array(result)
     result_sensitivity = np.lexsort(-result_sensitivity[:, ::-1].T)
     for i in range(len(result_sensitivity)):
         result_sensitivity[i] += 1
 
+    # 获得模型优劣排序
     print(result_specificity)
     print(result_sensitivity)
 
@@ -331,6 +338,7 @@ for seed in range(101, 1001):
         if result_specificity[i] not in model_indexs:
             model_indexs.append(result_specificity[i])
     print(model_indexs)
+    # 挑选出3个模型
 
     for idx in range(1, 14):
         data_test = read_file(args.feature_dir + '/test_enhance/', idx)
