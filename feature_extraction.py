@@ -11,8 +11,8 @@ path_execute_file = r'/home/wangxu/project/opensmile/build/progsrc/smilextract/S
 # opensmile配置文件所在的路径  一般根据要求会选择不同的配置文件
 path_config = r'/home/wangxu/project/opensmile/config/emobase/emobase2010.conf'
 
-path_audio = r'/home/wangxu/project/Audioprocessing/2022data/test_enhance'  # E:\pythonProject\Audioprocessing\test该目录下是各个类别文件夹，类别文件夹下才是wav语音文件,比如说，我把wav文件放在了voice的文件夹里，但是voice在new文件夹里  所以应该具体到new文件夹即可，因为下面的代码是对整个文件夹里的所有文件目录里的文件进行操作，具体适用于多种不同类型的语音来进行提取特征
-dir_output = r'/home/wangxu/project/Audioprocessing/2022data/test_enhance/1s_features'  # E:\pythonProject\Audioprocessing这里的路径可以自行设置比如"...\\...\\"python要加一个\转义字符
+path_audio = r'/home/wangjiyuan/data/2022data/train_enhance'  # E:\pythonProject\Audioprocessing\test该目录下是各个类别文件夹，类别文件夹下才是wav语音文件,比如说，我把wav文件放在了voice的文件夹里，但是voice在new文件夹里  所以应该具体到new文件夹即可，因为下面的代码是对整个文件夹里的所有文件目录里的文件进行操作，具体适用于多种不同类型的语音来进行提取特征
+dir_output = r'/home/wangjiyuan/data/2022data/train_enhance'  # E:\pythonProject\Audioprocessing这里的路径可以自行设置比如"...\\...\\"python要加一个\转义字符
 
 
 # 利用cmd调用exe文件
