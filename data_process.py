@@ -46,9 +46,10 @@ def process_data(feature_dir, split=True, to_tensor=True):
     获取用于训练模型的数据
     :param feature_dir: 特征所在路径
     :param split: 是否分割数据集
-    :param to_tensor: 是否转换为torch张量
+    :param to_tensor: 是否转换为torch张量。默认为True，转换为张量。设置为False时，返回的是numpy数组。
     :return: 返回(train_features, val_features, train_labels, val_labels)。
     在不分割数据集的情况下，val_features和val-labels为None。
+    返回的特征形状为：(NUM_QUESTIONS, NUM_SUBJECTS, DIM_FEATURES)
     """
     # NOTE:预计获取到的特征形状为：(NUM_QUESTIONS, NUM_SUBJECTS, DIM_FEATURES)
 
