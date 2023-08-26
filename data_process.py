@@ -63,7 +63,6 @@ def process_data(feature_dir, split=True, to_tensor=True):
     val_labels = [] if split else None
 
     for question_no in range(1, NUM_QUESTIONS + 1):
-        feature_dir = os.path.join(feature_dir, 'train_enhance')
         train_data = np.array(
             [read_feature(feature_dir, subject_no, question_no=question_no, selected_indices=SELECTED_INDICES)
              for subject_no in range(1, NUM_TRAIN_SUBJECTS + 1)]
