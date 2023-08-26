@@ -5,85 +5,40 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
+from utils import int2str
 
-from constants import TO_DEL_LINES, NUM_QUESTIONS, NUM_TRAIN_DEPRESSION, NUM_TRAIN_SUBJECTS
-
-b = [1492, 227, 1403, 174, 468, 1493, 1036, 417, 607, 612, 45, 15, 1277, 872, 153, 1491, 619, 685, 305, 529]
-"""
-选择的特征序号
-"""
+from constants import TO_DEL_LINES, NUM_QUESTIONS, NUM_TRAIN_DEPRESSION, NUM_TRAIN_SUBJECTS, NUM_FEATURES, \
+    SELECTED_INDICES
 
 
-def read_file(path, subject_no):
+def read_feature(feature_dir, subject_no, question_no=None, selected_indices=None):
     """
-    读取opensmile提取的特征文件
-    :param path:特征路径
-    :param subject_no: 受试者编号
-    :return: 特征序列
+    读取opensmile提取的特征文件(名为audio_feature<no>.txt的文件，包含了单个受试者的所有问题的特征)。
+    :param feature_dir: 音频特征文件所在目录
+    :param subject_no: 受试者编号，从1开始
+    :param question_no: 问题编号，从1开始。
+    :param selected_indices: 选择的特征序号，从0开始。例如：[0, 52, 62, 74, 333, 1581]
+    :return: 如果指定了question_no，则返回该问题的特征向量；否则返回所有问题的特征向量
     """
-    feature_name = f'audio_feature0{subject_no}.txt'
-    txt_path = os.path.join(path, feature_name)
-    # mat_path = path + 'whisper_features0{}.mat'.format(i)
-    f = open(txt_path)
-    lines = f.readlines()
-
-    del lines[0:TO_DEL_LINES]
-    first_ele = True
-    for data in lines:
-        data = data.strip('\n')
-        nums = data.split(',')
-        if first_ele:
-            matrix = np.array(nums)
-            first_ele = False
-        else:
-            matrix = np.c_[matrix, nums]
-    matrix = matrix.transpose()
-
-    # mat = hdf5.loadmat(mat_path)['dataset_features']
-    a = []
-    for x in range(0, NUM_QUESTIONS):
-        result = [float(matrix[x][c]) for c in b]
-        # features_mat = mat[x]
-        # features_line = [float(features_mat[j]) for j in range(1280)]
-        # result = result + features_line
-        a.append(result)
-    arr = np.array(a)
-    f.close()
-    return arr
-
-
-def read_file_index(question_no, path, subject_no):
-    """
-    读取opensmile提取的特征文件
-    :param question_no: 问题序号，从1开始
-    :param path: 特征路径
-    :param subject_no: 受试者序号
-    :return: 特征
-    """
-    feature_name = f'audio_feature0{subject_no}.txt'
-    txt_path = os.path.join(path, feature_name)
-    # mat_path = path + 'whisper_features0{}.mat'.format(i)
-    f = open(txt_path)
-    lines = f.readlines()
-    del lines[0:TO_DEL_LINES]
-    first_ele = True
-    for data in lines:
-        data = data.strip('\n')
-        nums = data.split(',')
-        if first_ele:
-            matrix = np.array(nums)
-            first_ele = False
-        else:
-            matrix = np.c_[matrix, nums]
-    matrix = matrix.transpose()
-    result = [float(matrix[question_no - 1][c]) for c in b]
-
-    # mat = hdf5.loadmat(mat_path)['dataset_features'][index-1]
-    # features_mat = [float(mat[i]) for i in range(1280)]
-    # result = result + features_mat
-
-    f.close()
-    return result
+    feature_filename = f'audio_feature{int2str(subject_no)}.txt'
+    txt_path = os.path.join(feature_dir, feature_filename)
+    assert os.path.exists(txt_path)
+    with open(txt_path) as f:
+        vectors = f.readlines()
+    if question_no is not None:
+        vector = vectors[TO_DEL_LINES + question_no - 1].split(',')
+        vector = np.array(vector)
+        vector = vector[1:NUM_FEATURES + 1]
+        if selected_indices is not None:
+            vector = vector[selected_indices]
+        return vector
+    else:
+        vectors = np.array(
+            [vector.split(',') for vector in vectors[TO_DEL_LINES + 1:TO_DEL_LINES + NUM_QUESTIONS + 1]])
+        vectors = vectors[:, 1:NUM_FEATURES + 1]
+        if selected_indices is not None:
+            vectors = vectors[:, selected_indices]
+        return vectors
 
 
 def process_data(feature_dir, split=True, to_tensor=True):
@@ -105,14 +60,17 @@ def process_data(feature_dir, split=True, to_tensor=True):
     val_features = [] if split else None
     train_labels = []
     val_labels = [] if split else None
+
     for question_no in range(1, NUM_QUESTIONS + 1):
-        feature_path = os.path.join(feature_dir, 'train_enhance')
+        feature_dir = os.path.join(feature_dir, 'train_enhance')
         train_data = np.array(
-            [read_file_index(question_no, feature_path, subject_no) for subject_no in range(1, NUM_TRAIN_SUBJECTS + 1)]
+            [read_feature(feature_dir, subject_no, question_no=question_no, selected_indices=SELECTED_INDICES)
+             for subject_no in range(1, NUM_TRAIN_SUBJECTS + 1)]
         )
 
         # 划分训练集和验证集
         if split:
+            # 分割比例在这里写死了，shuffle的随机种子也写死了
             x_train, x_val, y_train, y_val = train_test_split(train_data, labels, test_size=0.2, random_state=42)
             train_features.append(x_train)
             val_features.append(x_val)

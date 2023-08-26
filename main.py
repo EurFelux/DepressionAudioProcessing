@@ -6,8 +6,8 @@ import numpy as np
 from torch.optim import Adam
 import torch.nn as nn
 from utils import set_seeds
-from constants import NUM_QUESTIONS, NUM_TEST_SUBJECTS, NUM_OURS_SUBJECTS, NUM_TEST_DEPRESSION
-from data_process import read_file, process_data, get_dataloader
+from constants import NUM_QUESTIONS, NUM_TEST_SUBJECTS, NUM_OURS_SUBJECTS, NUM_TEST_DEPRESSION, SELECTED_INDICES
+from data_process import read_feature, process_data, get_dataloader
 from CNN_torch import CNN, load_model
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"
@@ -158,8 +158,9 @@ def test(model_indices, index_threshold):
     """
     test_result = []
 
-    for idx in range(1, NUM_TEST_SUBJECTS + 1):
-        data_test = read_file(args.feature_dir + '/test_enhance/', idx)
+    for subject_no in range(1, NUM_TEST_SUBJECTS + 1):
+        test_data_path = f'{args.feature_dir}/test_enhance/'
+        data_test = read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES)
 
         health = 0
         depression = 0
@@ -206,8 +207,9 @@ def test(model_indices, index_threshold):
 
     our_result = []
 
-    for idx in range(1, NUM_OURS_SUBJECTS + 1):
-        data_test = read_file(args.feature_dir + '/health_data_enhance/', idx)
+    for subject_no in range(1, NUM_OURS_SUBJECTS + 1):
+        test_data_path = f'{args.feature_dir}/health_data_enhance/'
+        data_test = read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES)
 
         health = 0
         depression = 0

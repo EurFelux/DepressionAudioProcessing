@@ -5,22 +5,22 @@ from xgboost import XGBClassifier
 from xgboost import plot_importance
 from matplotlib import pyplot
 from constants import TO_DEL_LINES, NUM_FEATURES, NUM_QUESTIONS, NUM_TRAIN_SUBJECTS, NUM_TRAIN_DEPRESSION
-
+from utils import int2str
 import os
 
 
 def read_full_feature(question_no, path, subject_no):
-    feature_filename = f'audio_feature{str(subject_no).rjust(2, "0")}.txt'
+    feature_filename = f'audio_feature{int2str(subject_no)}.txt'
     txt_path = os.path.join(path, feature_filename)
     assert os.path.exists(txt_path)
     # mat_path = path + 'whisper_features0{}.mat'.format(i)
     f = open(txt_path)
-    lines = f.readlines()
-    del lines[0:TO_DEL_LINES]
+    vectors = f.readlines()
+    del vectors[0:TO_DEL_LINES]
     first_ele = True
-    for data in lines:
-        data = data.strip('\n')
-        nums = data.split(',')
+    for vector in vectors:
+        vector = vector.strip('\n')
+        nums = vector.split(',')
         if first_ele:
             matrix = np.array(nums)
             first_ele = False
