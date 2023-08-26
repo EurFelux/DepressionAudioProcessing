@@ -48,7 +48,7 @@ def extract_features(path_dataset, dir_arff, num_subjects):
         output_name = f'audio_feature{int2str(subject_no)}.txt'
         if os.path.exists(output_name):
             os.remove(output_name)
-        for question_no in tqdm(range(1, NUM_QUESTIONS + 1), desc='\tProcessing question', unit='question', leave=False):
+        for question_no in tqdm(range(1, NUM_QUESTIONS + 1), desc='Processing question', unit='question', leave=False):
             wav_name = f'{int2str(question_no)}_DeepFilterNet.wav'
             assert os.path.exists(os.path.join(subject_path, wav_name))
             file_path = os.path.join(subject_path, wav_name)
