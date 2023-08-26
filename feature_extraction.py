@@ -2,8 +2,9 @@
 # 包的引入 这些包python自带
 import os
 from subprocess import call
-from constants import NUM_QUESTIONS, NUM_TRAIN_SUBJECTS, NUM_TEST_SUBJECTS
-import argparse
+from constants import NUM_QUESTIONS, NUM_TRAIN_SUBJECTS, NUM_TEST_SUBJECTS, MAX_DIGITS, OPENSMILE_LOG_LEVEL
+from utils import int2str
+from tqdm import tqdm
 
 # 路径设置
 # SMILExtract_Debug.exe所在的文件路径
@@ -26,7 +27,8 @@ def opensmile(_path_execute_file, _path_config, _path_audio, _dir_output, _name)
     :param _name: 特征名
     :return:
     """
-    cmd = f'{_path_execute_file} -C {_path_config} -I {_path_audio} -O {_dir_output} -N {_name}'
+
+    cmd = f'{_path_execute_file} -C {_path_config} -l {OPENSMILE_LOG_LEVEL} -I {_path_audio} -O {_dir_output} -N {_name}'
     call(cmd, shell=True)
 
 
@@ -39,18 +41,20 @@ def extract_features(path_dataset, dir_arff, num_subjects):
     :param num_subjects: 数据集中受试者数量
     :return:
     """
-    subjects = [str(i).rjust(2, '0') for i in range(1, num_subjects + 1)]
-    for subject in subjects:
-        subject_path = os.path.join(path_dataset, subject)
+    subjects = [int2str(i) for i in range(1, num_subjects + 1)]
+    for subject_no in tqdm(subjects, desc='Feature extraction', unit='subject', leave=True):
+        subject_path = os.path.join(path_dataset, subject_no)
         assert os.path.isdir(subject_path)
-        for i in range(1, NUM_QUESTIONS + 1):
-            wav_name = f'{str(i).rjust(2, "0")}_DeepFilterNet.wav'
+        output_name = f'audio_feature{int2str(subject_no)}.txt'
+        if os.path.exists(output_name):
+            os.remove(output_name)
+        for question_no in tqdm(range(1, NUM_QUESTIONS + 1), desc='Processing question', unit='question', leave=False):
+            wav_name = f'{int2str(question_no)}_DeepFilterNet.wav'
             assert os.path.exists(os.path.join(subject_path, wav_name))
             file_path = os.path.join(subject_path, wav_name)
-            output_name = f'audio_feature{str(i).rjust(2, "0")}.txt'
             output_path = os.path.join(dir_arff, output_name)
             opensmile(path_execute_file, path_config, file_path, output_path,
-                      f'{subject}-{str(i).rjust(2, "0")}_DeepFilterNet')
+                      f'{subject_no}-{int2str(question_no)}_DeepFilterNet')
 
 
 if __name__ == '__main__':
