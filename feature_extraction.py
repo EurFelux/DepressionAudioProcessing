@@ -46,13 +46,13 @@ def extract_features(path_dataset, dir_arff, num_subjects):
         subject_path = os.path.join(path_dataset, subject_no)
         assert os.path.isdir(subject_path)
         output_name = f'audio_feature{int2str(subject_no)}.txt'
-        if os.path.exists(output_name):
-            os.remove(output_name)
+        output_path = os.path.join(dir_arff, output_name)
+        if os.path.exists(output_path):
+            os.remove(output_path)
         for question_no in tqdm(range(1, NUM_QUESTIONS + 1), desc='Processing question', unit='question', leave=False):
             wav_name = f'{int2str(question_no)}_DeepFilterNet.wav'
             assert os.path.exists(os.path.join(subject_path, wav_name))
             file_path = os.path.join(subject_path, wav_name)
-            output_path = os.path.join(dir_arff, output_name)
             opensmile(path_execute_file, path_config, file_path, output_path,
                       f'{subject_no}-{int2str(question_no)}_DeepFilterNet')
 
