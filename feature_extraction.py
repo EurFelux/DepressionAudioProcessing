@@ -1,20 +1,25 @@
 # -*- coding: UTF-8 -*-
 # 包的引入 这些包python自带
 import os
+import argparse
 from subprocess import call
-from constants import NUM_QUESTIONS, NUM_TRAIN_SUBJECTS, NUM_TEST_SUBJECTS, MAX_DIGITS, OPENSMILE_LOG_LEVEL
+from constants import NUM_QUESTIONS, NUM_TRAIN_SUBJECTS, NUM_TEST_SUBJECTS, MAX_DIGITS, OPENSMILE_LOG_LEVEL, \
+    NUM_OURS_SUBJECTS
 from utils import int2str
 from tqdm import tqdm
+
+# 参数设置
+parser = argparse.ArgumentParser()
+parser.add_argument("--num_subjects", default=NUM_TRAIN_SUBJECTS)
+parser.add_argument("--path_audio", default="/home/wangjiyuan/data/2022data/train_enhance")
+parser.add_argument("--dir_output", default="/home/wangjiyuan/dev/DepressionAudioProcessing/features")
+args = parser.parse_args()
 
 # 路径设置
 # SMILExtract_Debug.exe所在的文件路径
 path_execute_file = r'/home/wangxu/project/opensmile/build/progsrc/smilextract/SMILExtract'  # 不是要求路径具体大小 省略号就是简单省略
 # opensmile配置文件所在的路径  一般根据要求会选择不同的配置文件
 path_config = r'/home/wangxu/project/opensmile/config/emobase/emobase2010.conf'
-
-path_audio = r'/home/wangjiyuan/data/2022data/train_enhance'  # E:\pythonProject\Audioprocessing\test该目录下是各个类别文件夹，类别文件夹下才是wav语音文件,比如说，我把wav文件放在了voice的文件夹里，但是voice在new文件夹里  所以应该具体到new文件夹即可，因为下面的代码是对整个文件夹里的所有文件目录里的文件进行操作，具体适用于多种不同类型的语音来进行提取特征
-dir_output = r'/home/wangjiyuan/data/2022data/train_enhance'  # E:\pythonProject\Audioprocessing这里的路径可以自行设置比如"...\\...\\"python要加一个\转义字符
-
 
 # 利用cmd调用exe文件
 def opensmile(_path_execute_file, _path_config, _path_audio, _dir_output, _name):
@@ -41,6 +46,8 @@ def extract_features(path_dataset, dir_arff, num_subjects):
     :param num_subjects: 数据集中受试者数量
     :return:
     """
+    if not os.path.exists(dir_arff):
+        os.mkdir(dir_arff)
     subjects = [int2str(i) for i in range(1, num_subjects + 1)]
     for subject_no in tqdm(subjects, desc='Processing subject', unit='subject', leave=True):
         subject_path = os.path.join(path_dataset, subject_no)
@@ -58,4 +65,7 @@ def extract_features(path_dataset, dir_arff, num_subjects):
 
 
 if __name__ == '__main__':
-    extract_features(path_audio, dir_output, NUM_TRAIN_SUBJECTS)
+    path_audio = args.path_audio
+    dir_output = args.dir_output
+    num_subjects = args.num_subjects
+    extract_features(path_audio, dir_output, num_subjects)

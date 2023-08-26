@@ -6,6 +6,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import torch.nn as nn
 from sklearn.model_selection import train_test_split
 from utils import int2str
+from CNN_torch import adapt_shape
 
 from constants import TO_DEL_LINES, NUM_QUESTIONS, NUM_TRAIN_DEPRESSION, NUM_TRAIN_SUBJECTS, NUM_FEATURES, \
     SELECTED_INDICES
@@ -26,27 +27,29 @@ def read_feature(feature_dir, subject_no, question_no=None, selected_indices=Non
     with open(txt_path) as f:
         vectors = f.readlines()
     if question_no is not None:
-        vector = vectors[TO_DEL_LINES + question_no - 1].split(',')
-        vector = np.array(vector)
-        vector = vector[1:NUM_FEATURES + 1]
+        vector = vectors[TO_DEL_LINES + question_no - 1].split(',')[1:NUM_FEATURES + 1]
+        vector = np.array(vector, dtype=np.float32)
         if selected_indices is not None:
             vector = vector[selected_indices]
         return vector
     else:
-        vectors = np.array(
-            [vector.split(',') for vector in vectors[TO_DEL_LINES + 1:TO_DEL_LINES + NUM_QUESTIONS + 1]])
         vectors = vectors[:, 1:NUM_FEATURES + 1]
+        vectors = np.array(
+            [vector.split(',') for vector in vectors[TO_DEL_LINES + 1:TO_DEL_LINES + NUM_QUESTIONS + 1]],
+            dtype=np.float32)
         if selected_indices is not None:
             vectors = vectors[:, selected_indices]
         return vectors
 
 
-def process_data(feature_dir, split=True, to_tensor=True):
+def process_data(feature_dir, split=True, to_tensor=True, device='cpu', selected_indices=SELECTED_INDICES):
     """
     获取用于训练模型的数据
     :param feature_dir: 特征所在路径
     :param split: 是否分割数据集
     :param to_tensor: 是否转换为torch张量。默认为True，转换为张量。设置为False时，返回的是numpy数组。
+    :param device: to_tensor为True时控制张量所在的设备。默认为cpu。
+    :param selected_indices: 选择的特征序号，从0开始。例如：[0, 52, 62, 74, 333, 1581]。默认从constants.py中读取。
     :return: 返回(train_features, val_features, train_labels, val_labels)。
     在不分割数据集的情况下，val_features和val-labels为None。
     返回的特征形状为：(NUM_QUESTIONS, NUM_SUBJECTS, DIM_FEATURES)
@@ -64,7 +67,7 @@ def process_data(feature_dir, split=True, to_tensor=True):
 
     for question_no in range(1, NUM_QUESTIONS + 1):
         train_data = np.array(
-            [read_feature(feature_dir, subject_no, question_no=question_no, selected_indices=SELECTED_INDICES)
+            [read_feature(feature_dir, subject_no, question_no=question_no, selected_indices=selected_indices)
              for subject_no in range(1, NUM_TRAIN_SUBJECTS + 1)]
         )
 
@@ -88,24 +91,27 @@ def process_data(feature_dir, split=True, to_tensor=True):
 
     # 转换为张量
     if to_tensor:
-        train_features = torch.tensor(train_features)
-        val_features = torch.tensor(val_features)
-        train_labels = torch.tensor(train_labels)
-        val_labels = torch.tensor(val_labels)
+        train_features = torch.tensor(train_features).to(device)
+        val_features = torch.tensor(val_features).to(device)
+        train_labels = torch.tensor(train_labels).to(device)
+        val_labels = torch.tensor(val_labels).to(device)
 
     # 返回
     return train_features, val_features, train_labels, val_labels
 
 
-def get_dataloader(features, labels, batch_size=1, shuffle=True):
+def get_dataloader(features: torch.Tensor, labels: torch.Tensor, batch_size=1, shuffle=True, change_shape=False):
     """
     获取数据集的DataLoader
-    :param features: 特征张量
+    :param features: 特征张量，形状应为(num_subjects, dim_features)
     :param labels: 标签张量
     :param batch_size: 批量大小，默认为1
     :param shuffle: 是否打乱，默认为True
+    :param change_shape: 是否改变特征张量的形状，默认为False
     :return: 将特征和标签构造为TensorDataset后生成的DataLoader
     """
+    if change_shape:
+        features = adapt_shape(features)  # 变为(num_subjects, 1, dim_features, 1)
     dataset = TensorDataset(features, labels)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     return dataloader

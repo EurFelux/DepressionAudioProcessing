@@ -58,7 +58,7 @@ class CNN(nn.Module):
             nn.MaxPool2d((1, 2)),
             nn.Flatten()
         )
-        self.dense = nn.Linear(64 * 4 * 4, 2)
+        self.dense = nn.Linear(3840, 2)
         self.softmax = nn.Softmax()
 
     def forward(self, x):
@@ -72,8 +72,8 @@ class CNN(nn.Module):
         y_prob = self.softmax(self.forward(x))
         return y_prob.argmax(dim=1)
 
-    def save(self, directory, name):
-        torch.save(self.state_dict(), os.path.join(directory, name))
+    def save(self, path):
+        torch.save(self.state_dict(), path)
 
 
 def load_model(path):
@@ -85,3 +85,12 @@ def load_model(path):
     model = CNN()
     model.load_state_dict(torch.load(path))
     return model
+
+
+def adapt_shape(features: torch.Tensor):
+    """
+    改变特征张量的形状
+    :param features: 特征张量，形状为(num_subjects, dim_features)
+    :return: 形状为(num_questions, 1, dim_features, 1)的张量
+    """
+    return features.unsqueeze(1).unsqueeze(3)  # 变为(num_subjects, 1, dim_features, 1)

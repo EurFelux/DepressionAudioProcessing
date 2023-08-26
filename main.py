@@ -3,29 +3,34 @@ import os
 import argparse
 
 import numpy as np
+import torch.cuda
 from torch.optim import Adam
 import torch.nn as nn
 from utils import set_seeds
 from constants import NUM_QUESTIONS, NUM_TEST_SUBJECTS, NUM_OURS_SUBJECTS, NUM_TEST_DEPRESSION, SELECTED_INDICES
 from data_process import read_feature, process_data, get_dataloader
-from CNN_torch import CNN, load_model
+from CNN_torch import CNN, load_model, adapt_shape
+from tqdm import tqdm
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
 # 设置参数转换
 parser = argparse.ArgumentParser()
-parser.add_argument("--feature_dir", default="/home/wangjiyuan/data/2022data/train_enhance")
+parser.add_argument("--feature_dir", default="/home/wangjiyuan/dev/DepressionAudioProcessing/features")
 parser.add_argument("--output_path", default="/home/wangjiyuan/dev/DepressionAudioProcessing/models")
 args = parser.parse_args()
 
 
 def main():
-    for seed in range(1001):
-        if flow_by_seed(seed):
+    print(f'CUDA test:\n\tis_available:\t{torch.cuda.is_available()}\n')
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    for seed in range(1):
+        if flow_by_seed(seed, device=device, skip_train=True):
             break
 
 
-def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=1):
+def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=1, skip_train=False,
+                 device=torch.device("cpu")):
     """
     在特定种子下完成一次完整的流程
     :param seed:
@@ -33,25 +38,39 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
     :param weight_decay: 权重衰退设置值
     :param num_epochs: 模型训练的Epochs数
     :param batch_size: 批量大小
+    :param skip_train: 是否跳过训练过程。如果为True，则直接加载模型并进行测试。
+    :param device: 训练和推理时使用的设备，默认使用cpu
     :return: True表示找到了好的模型，False表示没找到
     """
     set_seeds(seed)
-    train_features, val_features, train_labels, val_labels = process_data(args.feature_dir)
+
+    train_features_dir = os.path.join(args.feature_dir, 'train_enhance')
+    train_features, val_features, train_labels, val_labels = process_data(train_features_dir, device=device)
     result = []
-    for question_no in range(1, NUM_QUESTIONS):
-        data_iter = get_dataloader(train_features[question_no], train_labels[question_no], batch_size=batch_size)
-        cur_val_features = val_features[question_no]
+    for question_no in tqdm(range(1, NUM_QUESTIONS), desc='Validating models' if skip_train else 'Training models',
+                            unit='model', leave=False):
+        data_iter = get_dataloader(train_features[question_no], train_labels[question_no], batch_size=batch_size,
+                                   change_shape=True)
+        cur_val_features = adapt_shape(val_features[question_no])
         cur_val_labels = val_labels[question_no]
 
-        model = CNN()
-        optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-        loss_fn = nn.CrossEntropyLoss()
-        train_one_model(model, data_iter, optimizer, loss_fn, num_epochs)
+        if skip_train:
+            model_path = f'{args.output_path}/model_{question_no}.h5'
+            assert os.path.exists(model_path)
+            model = load_model(model_path).to(device)
+        else:
+            model = CNN().to(device)
+            optimizer = Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+            loss_fn = nn.CrossEntropyLoss()
+            train_one_model(model, data_iter, optimizer, loss_fn, num_epochs)
+            model.save(f'{args.output_path}/model_{question_no}.h5')
         acc, TP, FP, TN, FN = validate(model, cur_val_features, cur_val_labels)
+
         # 计算灵敏度和特异度
         sensitivity = TP / (TP + FN)
         specificity = TN / (TN + FP)
         result.append([sensitivity, specificity])
+        print(f'Model {question_no}: Accuracy: {acc}, Sensitivity: {sensitivity}, Specificity: {specificity}')
 
     # 获取模型优劣排序
     result_specificity = np.array(result)
@@ -80,7 +99,7 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
             break
         if result_specificity[i] not in model_indices:
             model_indices.append(result_specificity[i])
-    print(model_indices)
+    print(f'Selected models: {model_indices}')
     # 最后挑选了3个模型出来
 
     # 测试
@@ -110,8 +129,8 @@ def train_one_model(model, data_iter, optimizer, loss_fn, num_epochs):
     :param num_epochs: 训练的epochs数
     :return: None
     """
-    for epoch in range(num_epochs):
-        for features, labels in data_iter:
+    for epoch in tqdm(range(num_epochs), desc='Training', unit='epoch', leave=False):
+        for features, labels in tqdm(data_iter, desc='Processing batch', unit='batch', leave=False):
             optimizer.zero_grad()
             y_hat = model(features)
             loss = loss_fn(y_hat, labels)
@@ -149,17 +168,18 @@ def validate(model: CNN, val_features, val_labels):
     return accuracy, TP, FP, TN, FN
 
 
-def test(model_indices, index_threshold):
+def test(model_indices, index_threshold, device=torch.device("cpu")):
     """
     测试模型
     :param model_indices:
     :param index_threshold:
+    :param device:
     :return:
     """
     test_result = []
 
     for subject_no in range(1, NUM_TEST_SUBJECTS + 1):
-        test_data_path = f'{args.feature_dir}/test_enhance/'
+        test_data_path = os.path.join(args.feature_dir, 'test_enhance')
         data_test = read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES)
 
         health = 0
@@ -167,7 +187,7 @@ def test(model_indices, index_threshold):
 
         for model in model_indices:
             model_path = f'{args.output_path}/model_{model}.h5'
-            loaded_model = load_model(model_path)
+            loaded_model = load_model(model_path).to(device)
             if int(np.argmax(loaded_model.predict(np.array(data_test[model - 1]).reshape((1, 1, 20, 1))), axis=1)) == 0:
                 health += 1
             else:
@@ -208,7 +228,7 @@ def test(model_indices, index_threshold):
     our_result = []
 
     for subject_no in range(1, NUM_OURS_SUBJECTS + 1):
-        test_data_path = f'{args.feature_dir}/health_data_enhance/'
+        test_data_path = os.path.join(args.feature_dir, 'health_data_enhance')
         data_test = read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES)
 
         health = 0
@@ -248,6 +268,7 @@ def test(model_indices, index_threshold):
     print('our特异性：' + str(our_TN / (our_TN + our_FP)))
 
     return res, our_res
+
 
 if __name__ == '__main__':
     main()
