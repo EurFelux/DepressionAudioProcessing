@@ -59,7 +59,7 @@ class CNN(nn.Module):
             nn.Flatten()
         )
         self.dense = nn.Linear(3840, 2)
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = self.mod_seq_1(x)
@@ -68,21 +68,36 @@ class CNN(nn.Module):
         y = self.dense(x)
         return y
 
-    def predict(self, x):
+    def predict(self, x, return_type='pt'):
+        """
+        预测，直接给出预测结果。
+        :param x: 输入，形状为(num_subjects, 1, dim_features, 1)
+        :param return_type: 返回值类型，'pt'表示pytorch张量，'np'表示numpy数组, 'int'表示整数或整数列表, 'str'表示字符串。
+        :return:
+        """
         y_prob = self.softmax(self.forward(x))
-        return y_prob.argmax(dim=1)
+        res = y_prob.argmax(dim=1)
+        if return_type == 'pt':
+            return res
+        elif return_type == 'np':
+            return res.detach().numpy()
+        elif return_type == 'int':
+            return [1 if i == 1 else 0 for i in res]
+        elif return_type == 'str':
+            return ['depression' if i == 1 else 'health' for i in res]
 
     def save(self, path):
         torch.save(self.state_dict(), path)
 
 
-def load_model(path):
+def load_model(path, device=torch.device("cpu")):
     """
     加载模型
     :param path: 模型路径
+    :param device: 设备
     :return: 模型实例
     """
-    model = CNN()
+    model = CNN().to(device)
     model.load_state_dict(torch.load(path))
     return model
 
@@ -91,6 +106,8 @@ def adapt_shape(features: torch.Tensor):
     """
     改变特征张量的形状
     :param features: 特征张量，形状为(num_subjects, dim_features)
-    :return: 形状为(num_questions, 1, dim_features, 1)的张量
+    :return: 形状为(num_subjects, 1, dim_features, 1)的张量
     """
+    if len(features.shape) == 1:
+        features = features.unsqueeze(0)
     return features.unsqueeze(1).unsqueeze(3)  # 变为(num_subjects, 1, dim_features, 1)

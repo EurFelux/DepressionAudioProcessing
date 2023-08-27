@@ -12,7 +12,7 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_subjects", default=NUM_TRAIN_SUBJECTS)
 parser.add_argument("--path_audio", default="/home/wangjiyuan/data/2022data/train_enhance")
-parser.add_argument("--dir_output", default="/home/wangjiyuan/dev/DepressionAudioProcessing/features")
+parser.add_argument("--dir_output", default="/home/wangjiyuan/dev/DepressionAudioProcessing/features/train")
 args = parser.parse_args()
 
 # 路径设置
@@ -20,6 +20,7 @@ args = parser.parse_args()
 path_execute_file = r'/home/wangxu/project/opensmile/build/progsrc/smilextract/SMILExtract'  # 不是要求路径具体大小 省略号就是简单省略
 # opensmile配置文件所在的路径  一般根据要求会选择不同的配置文件
 path_config = r'/home/wangxu/project/opensmile/config/emobase/emobase2010.conf'
+
 
 # 利用cmd调用exe文件
 def opensmile(_path_execute_file, _path_config, _path_audio, _dir_output, _name):
@@ -67,5 +68,6 @@ def extract_features(path_dataset, dir_arff, num_subjects):
 if __name__ == '__main__':
     path_audio = args.path_audio
     dir_output = args.dir_output
-    num_subjects = args.num_subjects
+    num_subjects = int(args.num_subjects)
+    print(num_subjects)
     extract_features(path_audio, dir_output, num_subjects)

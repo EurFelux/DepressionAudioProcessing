@@ -1,10 +1,10 @@
-from data_process import process_data
+from CNN_torch import adapt_shape, load_model
+import torch
 
-train_path = r'/home/wangjiyuan/data/2022data/train_enhance'
+model_path = './models/model_1.h5'
 
-train_features, val_features, train_labels, val_labels = process_data(train_path, split=True, to_tensor=False)
+model = load_model(model_path)
 
-print(train_features.shape)
-print(val_features.shape)
-print(train_labels.shape)
-print(val_labels.shape)
+x = torch.normal(0, 1, size=(20, 1, 20, 1))
+y = model.predict(x, return_type='pt')
+print(y)

@@ -12,13 +12,14 @@ from constants import TO_DEL_LINES, NUM_QUESTIONS, NUM_TRAIN_DEPRESSION, NUM_TRA
     SELECTED_INDICES
 
 
-def read_feature(feature_dir, subject_no, question_no=None, selected_indices=None):
+def read_feature(feature_dir, subject_no, question_no=None, selected_indices=None, return_type='np'):
     """
     读取opensmile提取的特征文件(名为audio_feature<no>.txt的文件，包含了单个受试者的所有问题的特征)。
     :param feature_dir: 音频特征文件所在目录
     :param subject_no: 受试者编号，从1开始
     :param question_no: 问题编号，从1开始。
     :param selected_indices: 选择的特征序号，从0开始。例如：[0, 52, 62, 74, 333, 1581]
+    :param return_type: 返回类型，'pt'表示返回pytorch张量，'np'表示返回numpy数组，非法值的情况下返回numpy数组
     :return: 如果指定了question_no，则返回该问题的特征向量；否则返回所有问题的特征向量
     """
     feature_filename = f'audio_feature{int2str(subject_no)}.txt'
@@ -31,14 +32,20 @@ def read_feature(feature_dir, subject_no, question_no=None, selected_indices=Non
         vector = np.array(vector, dtype=np.float32)
         if selected_indices is not None:
             vector = vector[selected_indices]
+        if return_type == 'pt':
+            vector = torch.tensor(vector)
         return vector
     else:
-        vectors = vectors[:, 1:NUM_FEATURES + 1]
+        print(len(vectors))
         vectors = np.array(
-            [vector.split(',') for vector in vectors[TO_DEL_LINES + 1:TO_DEL_LINES + NUM_QUESTIONS + 1]],
+            [vector.split(',')[1: NUM_FEATURES + 1]
+             for vector in vectors[TO_DEL_LINES:TO_DEL_LINES + NUM_QUESTIONS]],
             dtype=np.float32)
+        print(vectors.shape)
         if selected_indices is not None:
             vectors = vectors[:, selected_indices]
+        if return_type == 'pt':
+            vectors = torch.tensor(vectors)
         return vectors
 
 

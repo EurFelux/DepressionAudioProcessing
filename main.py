@@ -44,7 +44,7 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
     """
     set_seeds(seed)
 
-    train_features_dir = os.path.join(args.feature_dir, 'train_enhance')
+    train_features_dir = os.path.join(args.feature_dir, 'train')
     train_features, val_features, train_labels, val_labels = process_data(train_features_dir, device=device)
     result = []
     for question_no in tqdm(range(1, NUM_QUESTIONS), desc='Validating models' if skip_train else 'Training models',
@@ -147,7 +147,7 @@ def validate(model: CNN, val_features, val_labels):
     :param val_labels: 验证集标签
     :return: acc，TP，FP，TN，FN
     """
-    y = model.predict(val_features)
+    y = model.predict(val_features, return_type='pt')
 
     accuracy = (y == val_labels).sum() / len(val_labels)
 
@@ -179,16 +179,17 @@ def test(model_indices, index_threshold, device=torch.device("cpu")):
     test_result = []
 
     for subject_no in range(1, NUM_TEST_SUBJECTS + 1):
-        test_data_path = os.path.join(args.feature_dir, 'test_enhance')
-        data_test = read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES)
+        test_data_path = os.path.join(args.feature_dir, 'test')
+        data_test = (read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES, return_type='pt')
+                     .to(device))
 
         health = 0
         depression = 0
 
         for model in model_indices:
             model_path = f'{args.output_path}/model_{model}.h5'
-            loaded_model = load_model(model_path).to(device)
-            if int(np.argmax(loaded_model.predict(np.array(data_test[model - 1]).reshape((1, 1, 20, 1))), axis=1)) == 0:
+            loaded_model = load_model(model_path, device=device)
+            if loaded_model.predict(adapt_shape(data_test[model - 1]), return_type='int') == 0:
                 health += 1
             else:
                 depression += 1
@@ -228,15 +229,17 @@ def test(model_indices, index_threshold, device=torch.device("cpu")):
     our_result = []
 
     for subject_no in range(1, NUM_OURS_SUBJECTS + 1):
-        test_data_path = os.path.join(args.feature_dir, 'health_data_enhance')
-        data_test = read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES)
+        test_data_path = os.path.join(args.feature_dir, 'our')
+        data_test = (read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES, return_type='pt')
+                     .to(device))
 
         health = 0
         depression = 0
 
         for model in model_indices:
-            loaded_model = load_model(args.output_path + "/model_{}.h5".format(model))
-            if int(np.argmax(loaded_model.predict(np.array(data_test[model - 1]).reshape((1, 1, 20, 1))), axis=1)) == 0:
+            model_path = f'{args.output_path}/model_{model}.h5'
+            loaded_model = load_model(model_path, device=device)
+            if loaded_model.predict(adapt_shape(data_test[model - 1]), return_type='int') == 0:
                 health += 1
             else:
                 depression += 1
