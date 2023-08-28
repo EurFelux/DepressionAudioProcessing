@@ -78,7 +78,7 @@ def process_data(feature_dir, split=True, to_tensor=True, device='cpu', selected
 
         # 划分训练集和验证集
         if split:
-            # 分割比例在这里写死了，shuffle的随机种子也写死了
+            # shuffle的随机种子写死了
             x_train, x_val, y_train, y_val = train_test_split(train_data, labels, test_size=SPLIT_RATE, random_state=42)
             train_features.append(x_train)
             val_features.append(x_val)
