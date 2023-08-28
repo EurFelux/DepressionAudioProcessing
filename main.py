@@ -7,7 +7,8 @@ import torch.cuda
 from torch.optim import Adam
 import torch.nn as nn
 from utils import set_seeds
-from constants import NUM_QUESTIONS, NUM_TEST_SUBJECTS, NUM_OURS_SUBJECTS, NUM_TEST_DEPRESSION, SELECTED_INDICES
+from constants import NUM_QUESTIONS, NUM_TEST_SUBJECTS, NUM_OURS_SUBJECTS, NUM_TEST_DEPRESSION, SELECTED_INDICES, \
+    NUM_OURS_DEPRESSION, LOG_LEVEL
 from data_process import read_feature, process_data, get_dataloader
 from CNN_torch import CNN, load_model, adapt_shape
 from tqdm import tqdm
@@ -18,6 +19,8 @@ os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 parser = argparse.ArgumentParser()
 parser.add_argument("--feature_dir", default="/home/wangjiyuan/dev/DepressionAudioProcessing/features")
 parser.add_argument("--output_path", default="/home/wangjiyuan/dev/DepressionAudioProcessing/models")
+parser.add_argument('--skip-train', action='store_true', default=False)
+parser.add_argument("--log-level", default=LOG_LEVEL)
 args = parser.parse_args()
 
 
@@ -25,7 +28,7 @@ def main():
     print(f'CUDA test:\n\tis_available:\t{torch.cuda.is_available()}\n')
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     for seed in range(1):
-        if flow_by_seed(seed, device=device, skip_train=True):
+        if flow_by_seed(seed, device=device, skip_train=args.skip_train):
             break
 
 
@@ -168,18 +171,23 @@ def validate(model: CNN, val_features, val_labels):
     return accuracy, TP, FP, TN, FN
 
 
-def test(model_indices, index_threshold, device=torch.device("cpu")):
+def validate_models(model_indices: list, index_threshold: int, set_dir: str, num_subjects: int, num_depression: int,
+                    device=torch.device("cpu")):
     """
-    测试模型
-    :param model_indices:
-    :param index_threshold:
-    :param device:
+    验证模型。使用了SELECTED_INDICES作为特征序号。
+    :param model_indices: 要验证的模型序号（从0开始）
+    :param index_threshold: 阈值
+    :param set_dir: 测试集文件夹的名称
+    :param num_subjects: 测试集中受试者数量
+    :param num_depression: 测试集中抑郁症患者数量。应保证数据集中的前num_depression位为抑郁症患者的样本。
+    :param device: 设备。默认为cpu
     :return:
     """
     test_result = []
+    description = set_dir.title()
 
-    for subject_no in range(1, NUM_TEST_SUBJECTS + 1):
-        test_data_path = os.path.join(args.feature_dir, 'test')
+    for subject_no in range(1, num_subjects + 1):
+        test_data_path = os.path.join(args.feature_dir, set_dir)
         data_test = (read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES, return_type='pt')
                      .to(device))
 
@@ -189,18 +197,17 @@ def test(model_indices, index_threshold, device=torch.device("cpu")):
         for model in model_indices:
             model_path = f'{args.output_path}/model_{model}.h5'
             loaded_model = load_model(model_path, device=device)
-            if loaded_model.predict(adapt_shape(data_test[model - 1]), return_type='int') == 0:
-                health += 1
-            else:
+            pred = loaded_model.predict(adapt_shape(data_test[model - 1]), return_type='int')
+            if pred == 1:
                 depression += 1
-        if health >= index_threshold:
-            test_result.append(0)
-        else:
-            test_result.append(1)
+            else:
+                health += 1
 
-    print(test_result)
+        test_result.append(0 if health >= index_threshold else 1)
 
-    res = 0
+    print(f'{description} result:{test_result}')
+
+    success = 0
 
     # 计算灵敏度
     TP = 0  # 真阳性人数
@@ -210,68 +217,53 @@ def test(model_indices, index_threshold, device=torch.device("cpu")):
     TN = 0  # 真阴性人数
     FP = 0  # 假阳性人数
 
-    for i in range(0, NUM_TEST_DEPRESSION):
+    for i in range(0, num_depression):
         if test_result[i] == 1:
-            res += 1
+            success += 1
             TP += 1
         else:
             FN += 1
-    for i in range(NUM_TEST_DEPRESSION, NUM_TEST_SUBJECTS):
+    for i in range(num_depression, num_subjects):
         if test_result[i] == 0:
-            res += 1
+            success += 1
             TN += 1
         else:
             FP += 1
 
-    print('test灵敏度：' + str(TP / (TP + FN)))
-    print('test特异性：' + str(TN / (TN + FP)))
+    try:
+        sensitivity = TP / (TP + FN)
+    except ZeroDivisionError:
+        sensitivity = 'N/A'
 
-    our_result = []
+    try:
+        specificity = TN / (TN + FP)
+    except ZeroDivisionError:
+        specificity = 'N/A'
 
-    for subject_no in range(1, NUM_OURS_SUBJECTS + 1):
-        test_data_path = os.path.join(args.feature_dir, 'our')
-        data_test = (read_feature(test_data_path, subject_no, selected_indices=SELECTED_INDICES, return_type='pt')
-                     .to(device))
+    print(f'{description} sensitivity: {str(sensitivity)}')
+    print(f'{description} specificity: {str(specificity)}')
+    return success
 
-        health = 0
-        depression = 0
 
-        for model in model_indices:
-            model_path = f'{args.output_path}/model_{model}.h5'
-            loaded_model = load_model(model_path, device=device)
-            if loaded_model.predict(adapt_shape(data_test[model - 1]), return_type='int') == 0:
-                health += 1
-            else:
-                depression += 1
+def test(model_indices, index_threshold, device=torch.device("cpu")):
+    """
+    测试模型
+    :param model_indices:
+    :param index_threshold:
+    :param device: 设备
+    :return:
+    """
 
-        if health >= index_threshold:
-            our_result.append(0)
-        else:
-            our_result.append(1)
-
-    print(our_result)
-
-    our_res = 0
-
-    # 计算灵敏度
-    our_TP = 0  # 真阳性人数
-    our_FN = 0  # 假阴性人数
-
-    # 计算特异性
-    our_TN = 0  # 真阴性人数
-    our_FP = 0  # 假阳性人数
-
-    for i in range(0, NUM_OURS_SUBJECTS):
-        if our_result[i] == 0:
-            our_res += 1
-            our_TN += 1
-        else:
-            our_FP += 1
-
-    print('our特异性：' + str(our_TN / (our_TN + our_FP)))
+    res = validate_models(model_indices, index_threshold, 'test', NUM_TEST_SUBJECTS, NUM_TEST_DEPRESSION, device)
+    # 全部是健康的样本
+    our_res = validate_models(model_indices, index_threshold, 'ours', NUM_OURS_SUBJECTS, 0, device)
 
     return res, our_res
 
+
+def log(msg, log_level):
+    if log_level > args.log_level:
+        print(msg)
 
 if __name__ == '__main__':
     main()

@@ -82,7 +82,8 @@ class CNN(nn.Module):
         elif return_type == 'np':
             return res.detach().numpy()
         elif return_type == 'int':
-            return [1 if i == 1 else 0 for i in res]
+            res = [1 if i == 1 else 0 for i in res]
+            return res[0] if len(res) == 1 else res
         elif return_type == 'str':
             return ['depression' if i == 1 else 'health' for i in res]
 
@@ -105,7 +106,7 @@ def load_model(path, device=torch.device("cpu")):
 def adapt_shape(features: torch.Tensor):
     """
     改变特征张量的形状
-    :param features: 特征张量，形状为(num_subjects, dim_features)
+    :param features: 特征张量，形状为(num_subjects, dim_features)或者(dim_features)
     :return: 形状为(num_subjects, 1, dim_features, 1)的张量
     """
     if len(features.shape) == 1:

@@ -9,7 +9,7 @@ from utils import int2str
 from CNN_torch import adapt_shape
 
 from constants import TO_DEL_LINES, NUM_QUESTIONS, NUM_TRAIN_DEPRESSION, NUM_TRAIN_SUBJECTS, NUM_FEATURES, \
-    SELECTED_INDICES
+    SELECTED_INDICES, SPLIT_RATE
 
 
 def read_feature(feature_dir, subject_no, question_no=None, selected_indices=None, return_type='np'):
@@ -36,12 +36,10 @@ def read_feature(feature_dir, subject_no, question_no=None, selected_indices=Non
             vector = torch.tensor(vector)
         return vector
     else:
-        print(len(vectors))
         vectors = np.array(
             [vector.split(',')[1: NUM_FEATURES + 1]
              for vector in vectors[TO_DEL_LINES:TO_DEL_LINES + NUM_QUESTIONS]],
             dtype=np.float32)
-        print(vectors.shape)
         if selected_indices is not None:
             vectors = vectors[:, selected_indices]
         if return_type == 'pt':
@@ -81,7 +79,7 @@ def process_data(feature_dir, split=True, to_tensor=True, device='cpu', selected
         # 划分训练集和验证集
         if split:
             # 分割比例在这里写死了，shuffle的随机种子也写死了
-            x_train, x_val, y_train, y_val = train_test_split(train_data, labels, test_size=0.2, random_state=42)
+            x_train, x_val, y_train, y_val = train_test_split(train_data, labels, test_size=SPLIT_RATE, random_state=42)
             train_features.append(x_train)
             val_features.append(x_val)
             train_labels.append(y_train)
