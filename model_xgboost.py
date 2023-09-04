@@ -9,7 +9,7 @@ from data_process import process_data
 import os
 
 
-feature_dir = '/home/wangjiyuan/data/2022data/train_enhance/test_feature'
+feature_dir = '/home/wangjiyuan/dev/DepressionAudioProcessing/features/new_train'
 data, _, Y_train, _ = process_data(feature_dir, split=False, to_tensor=False, selected_indices=None)
 data = data.reshape(-1, NUM_FEATURES)
 Y_train = Y_train.reshape(-1)
@@ -29,5 +29,5 @@ print(list(indices))
 
 # plot
 plot_importance(model, importance_type="gain", max_num_features=DIM_FEATURES)
-pyplot.savefig('feature_gain_test_0827_test.jpg')
+pyplot.savefig('feature_gain_test_0828_test.jpg')
 pyplot.show()

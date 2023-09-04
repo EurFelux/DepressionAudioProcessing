@@ -25,6 +25,9 @@ class ECA(nn.Module):
 
 
 class SpatialAttention(nn.Module):
+    """
+    空间注意力层，不改变特征形状
+    """
     def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
         self.conv1 = nn.Conv2d(1, 1, kernel_size=kernel_size, padding=(kernel_size - 1) // 2, bias=False)
@@ -39,22 +42,36 @@ class SpatialAttention(nn.Module):
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
+        # self.mod_seq_1 = nn.Sequential(
+        #     SpatialAttention(),
+        #     nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
+        #     nn.ReLU(),
+        #     nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
+        #     nn.Tanh(),
+        #     nn.MaxPool2d((1, 2))
+        # )
         self.mod_seq_1 = nn.Sequential(
             SpatialAttention(),
-            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
-            # FFC_BN_ACT(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1,
-            #            activation_layer=nn.ReLU(), ratio_gin=0.5, ratio_gout=0.5),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3, 1), stride=(1, 1), padding=1),
-            nn.Tanh(),
+            FFC_BN_ACT(in_channels=1, out_channels=32, kernel_size=(3, 1), stride=1, padding=1,
+                       activation_layer=nn.ReLU, ratio_gin=0.5, ratio_gout=0.5),
+            FFC_BN_ACT(in_channels=32, out_channels=32, kernel_size=(3, 1), stride=1, padding=1,
+                       activation_layer=nn.ReLU, ratio_gin=0.5, ratio_gout=0.5),
             nn.MaxPool2d((1, 2))
         )
         self.eca = ECA(32)
+        # self.mod_seq_2 = nn.Sequential(
+        #     nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 1), stride=(1, 1), padding=1),
+        #     nn.Tanh(),
+        #     nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 1), stride=(1, 1), padding=1),
+        #     nn.Tanh(),
+        #     nn.MaxPool2d((1, 2)),
+        #     nn.Flatten()
+        # )
         self.mod_seq_2 = nn.Sequential(
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=(3, 1), stride=(1, 1), padding=1),
-            nn.Tanh(),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=(3, 1), stride=(1, 1), padding=1),
-            nn.Tanh(),
+            FFC_BN_ACT(in_channels=32, out_channels=64, kernel_size=(3, 1), stride=1, padding=1,
+                       activation_layer=nn.ReLU, ratio_gin=0.5, ratio_gout=0.5),
+            FFC_BN_ACT(in_channels=64, out_channels=64, kernel_size=(3, 1), stride=1, padding=1,
+                       activation_layer=nn.ReLU, ratio_gin=0.5, ratio_gout=0.5),
             nn.MaxPool2d((1, 2)),
             nn.Flatten()
         )

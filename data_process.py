@@ -18,7 +18,7 @@ def read_feature(feature_dir, subject_no, question_no=None, selected_indices=Non
     :param feature_dir: 音频特征文件所在目录
     :param subject_no: 受试者编号，从1开始
     :param question_no: 问题编号，从1开始。
-    :param selected_indices: 选择的特征序号，从0开始。例如：[0, 52, 62, 74, 333, 1581]
+    :param selected_indices: 选择的特征序号，从0开始。例如：[0, 52, 62, 74, 333, 1581]。设定为None时，选择所有特征。
     :param return_type: 返回类型，'pt'表示返回pytorch张量，'np'表示返回numpy数组，非法值的情况下返回numpy数组
     :return: 如果指定了question_no，则返回该问题的特征向量；否则返回所有问题的特征向量
     """
@@ -112,7 +112,7 @@ def get_dataloader(features: torch.Tensor, labels: torch.Tensor, batch_size=1, s
     :param labels: 标签张量
     :param batch_size: 批量大小，默认为1
     :param shuffle: 是否打乱，默认为True
-    :param change_shape: 是否改变特征张量的形状，默认为False
+    :param change_shape: 是否通过adapt_shape()改变特征张量的形状，默认为False
     :return: 将特征和标签构造为TensorDataset后生成的DataLoader
     """
     if change_shape:

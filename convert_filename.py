@@ -5,13 +5,13 @@
 import os
 from utils import int2str
 
-dataset_dir = '/home/wangjiyuan/data/2022data/test_enhance/12'
+dataset_dir = '/home/wangjiyuan/data/2022data/new_ours_test'
 
-# 16~30改成15~29
-for i in range(16, 31):
-    path = os.path.join(dataset_dir, f'{int2str(i)}_DeepFilterNet.wav')
-    print(f'Name changed from {int2str(i)}_DeepFilterNet.wav to {int2str(i - 1)}_DeepFilterNet.wav')
-    os.rename(path, os.path.join(dataset_dir, f'{int2str(i - 1)}_DeepFilterNet.wav'))
+# 04~16改为01~13
+for i in range(4, 17):
+    path = os.path.join(dataset_dir, f'{int2str(i)}')
+    print(f'Name changed from {int2str(i)} to {int2str(i - 3)}')
+    os.rename(path, os.path.join(dataset_dir, f'{int2str(i - 3)}'))
 
 # dirs = os.listdir(dataset_dir)
 # dirs.remove('1s_features')

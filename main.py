@@ -20,14 +20,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--feature_dir", default="/home/wangjiyuan/dev/DepressionAudioProcessing/features")
 parser.add_argument("--output_path", default="/home/wangjiyuan/dev/DepressionAudioProcessing/models")
 parser.add_argument('--skip-train', action='store_true', default=False)
-parser.add_argument("--log-level", default=LOG_LEVEL)
+parser.add_argument("--log-level", type=int, default=LOG_LEVEL)
 args = parser.parse_args()
 
 
 def main():
-    print(f'CUDA test:\n\tis_available:\t{torch.cuda.is_available()}\n')
+    log(f'CUDA test:\n\tis_available:\t{torch.cuda.is_available()}\n')
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    for seed in range(1):
+    for seed in tqdm(range(1), desc='Testing seeds', unit='seed', leave=False):
         if flow_by_seed(seed, device=device, skip_train=args.skip_train):
             break
 
@@ -47,11 +47,12 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
     """
     set_seeds(seed)
 
-    train_features_dir = os.path.join(args.feature_dir, 'train')
+    # 在这里设置训练集路径
+    train_features_dir = os.path.join(args.feature_dir, 'new_train')
     train_features, val_features, train_labels, val_labels = process_data(train_features_dir, device=device)
     result = []
     for question_no in tqdm(range(1, NUM_QUESTIONS), desc='Validating models' if skip_train else 'Training models',
-                            unit='model', leave=False):
+                            unit='model', leave=False) if args.log_level >= 2 else range(1, NUM_QUESTIONS):
         data_iter = get_dataloader(train_features[question_no], train_labels[question_no], batch_size=batch_size,
                                    change_shape=True)
         cur_val_features = adapt_shape(val_features[question_no])
@@ -67,13 +68,10 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
             loss_fn = nn.CrossEntropyLoss()
             train_one_model(model, data_iter, optimizer, loss_fn, num_epochs)
             model.save(f'{args.output_path}/model_{question_no}.h5')
-        acc, TP, FP, TN, FN = validate(model, cur_val_features, cur_val_labels)
-
-        # 计算灵敏度和特异度
-        sensitivity = TP / (TP + FN)
-        specificity = TN / (TN + FP)
+        acc, sensitivity, specificity = validate(model, cur_val_features, cur_val_labels)
         result.append([sensitivity, specificity])
-        print(f'Model {question_no}: Accuracy: {acc}, Sensitivity: {sensitivity}, Specificity: {specificity}')
+
+        log(f'Model {question_no}: Accuracy: {acc}, Sensitivity: {sensitivity}, Specificity: {specificity}')
 
     # 获取模型优劣排序
     result_specificity = np.array(result)
@@ -86,8 +84,8 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
     for i in range(len(result_sensitivity)):
         result_sensitivity[i] += 1
 
-    print(result_specificity)
-    print(result_sensitivity)
+    log(f'result_specificity: {result_specificity}', log_level=2)
+    log(f'result_sensitivity: {result_sensitivity}', log_level=2)
 
     # 选择模型
     index_threshold = 2
@@ -102,21 +100,21 @@ def flow_by_seed(seed, lr=0.001, weight_decay=0.001, num_epochs=100, batch_size=
             break
         if result_specificity[i] not in model_indices:
             model_indices.append(result_specificity[i])
-    print(f'Selected models: {model_indices}')
+    log(f'Selected models: {model_indices}', log_level=2)
     # 最后挑选了3个模型出来
 
     # 测试
     res, our_res = test(model_indices, index_threshold)
 
-    print('seed == ' + str(seed))
-    print('test正确率：' + str(res / NUM_TEST_SUBJECTS))
-    print('our正确率：' + str(our_res / NUM_OURS_SUBJECTS))
+    log('seed == ' + str(seed), log_level=1)
+    log(f'test正确率：{res / NUM_TEST_SUBJECTS}', log_level=1)
+    log(f'our正确率：{our_res / NUM_OURS_SUBJECTS}', log_level=1)
 
     if (res / NUM_TEST_SUBJECTS) > 0.9 and (our_res / NUM_OURS_SUBJECTS) > 0.8:
-        print("找到了！！！！")
-        print('seed == ' + str(seed))
-        print('test正确率：' + str(res / NUM_TEST_SUBJECTS))
-        print('our正确率：' + str(our_res / NUM_OURS_SUBJECTS))
+        log("找到了！！！！", log_level=0)
+        log(f'seed == {seed}', log_level=0)
+        log(f'test正确率：{res / NUM_TEST_SUBJECTS}', log_level=0)
+        log(f'our正确率：{our_res / NUM_OURS_SUBJECTS}', log_level=0)
         return True
 
     return False
@@ -132,8 +130,10 @@ def train_one_model(model, data_iter, optimizer, loss_fn, num_epochs):
     :param num_epochs: 训练的epochs数
     :return: None
     """
-    for epoch in tqdm(range(num_epochs), desc='Training', unit='epoch', leave=False):
-        for features, labels in tqdm(data_iter, desc='Processing batch', unit='batch', leave=False):
+    for _ in tqdm(range(num_epochs), desc='Training', unit='epoch', leave=False) \
+            if args.log_level >= 2 else range(num_epochs):
+        for features, labels in tqdm(data_iter, desc='Processing batch', unit='batch', leave=False) \
+                if args.log_level >= 3 else data_iter:
             optimizer.zero_grad()
             y_hat = model(features)
             loss = loss_fn(y_hat, labels)
@@ -168,7 +168,11 @@ def validate(model: CNN, val_features, val_labels):
             TN += 1
         elif y[i] == 0 and val_labels[i] == 1:
             FN += 1
-    return accuracy, TP, FP, TN, FN
+
+    # 计算灵敏度和特异度
+    sensitivity = TP / (TP + FN)
+    specificity = TN / (TN + FP)
+    return accuracy, sensitivity, specificity
 
 
 def validate_models(model_indices: list, index_threshold: int, set_dir: str, num_subjects: int, num_depression: int,
@@ -205,7 +209,7 @@ def validate_models(model_indices: list, index_threshold: int, set_dir: str, num
 
         test_result.append(0 if health >= index_threshold else 1)
 
-    print(f'{description} result:{test_result}')
+    log(f'{description} result:{test_result}')
 
     success = 0
 
@@ -240,8 +244,8 @@ def validate_models(model_indices: list, index_threshold: int, set_dir: str, num
     except ZeroDivisionError:
         specificity = 'N/A'
 
-    print(f'{description} sensitivity: {str(sensitivity)}')
-    print(f'{description} specificity: {str(specificity)}')
+    log(f'{description} sensitivity: {str(sensitivity)}')
+    log(f'{description} specificity: {str(specificity)}')
     return success
 
 
@@ -256,14 +260,24 @@ def test(model_indices, index_threshold, device=torch.device("cpu")):
 
     res = validate_models(model_indices, index_threshold, 'test', NUM_TEST_SUBJECTS, NUM_TEST_DEPRESSION, device)
     # 全部是健康的样本
-    our_res = validate_models(model_indices, index_threshold, 'ours', NUM_OURS_SUBJECTS, 0, device)
+    our_res = validate_models(model_indices, index_threshold, 'new_ours_test', NUM_OURS_SUBJECTS, NUM_OURS_DEPRESSION,
+                              device)
 
     return res, our_res
 
 
-def log(msg, log_level):
-    if log_level > args.log_level:
+def log(msg: str, log_level: int = 2):
+    """
+    打印日志
+    :param msg: 信息
+    :param log_level: 该条日志的等级，至少为0。如果设置的日志等级小于此等级，则这条信息不会打印。
+    如果该值设置为0，则总是打印。
+    :return:
+    """
+    assert log_level >= 0
+    if log_level <= args.log_level:
         print(msg)
+
 
 if __name__ == '__main__':
     main()

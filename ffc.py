@@ -41,31 +41,53 @@ class FourierUnit(nn.Module):
         # bn_layer not used
         super(FourierUnit, self).__init__()
         self.groups = groups
+        self.in_channels = in_channels
+        self.out_channels = out_channels
         self.conv_layer = torch.nn.Conv2d(in_channels=in_channels * 2, out_channels=out_channels * 2,
                                           kernel_size=1, stride=1, padding=0, groups=self.groups, bias=False)
         self.bn = torch.nn.BatchNorm2d(out_channels * 2)
         self.relu = torch.nn.ReLU(inplace=True)
 
+    # def forward(self, x):
+    #     batch, c, h, w = x.size()
+    #     r_size = x.size()
+    #
+    #     # (batch, c, h, w/2+1, 2)
+    #     ffted = torch.rfft(x, signal_ndim=2, normalized=True)
+    #     # (batch, c, 2, h, w/2+1)
+    #     ffted = ffted.permute(0, 1, 4, 2, 3).contiguous()
+    #     # (batch, c*2, h, w/2+1)
+    #     ffted = ffted.view((batch, -1,) + ffted.size()[3:])
+    #
+    #     ffted = self.conv_layer(ffted)  # (batch, c*2, h, w/2+1)
+    #     ffted = self.relu(self.bn(ffted))
+    #
+    #     ffted = ffted.view((batch, -1, 2,) + ffted.size()[2:]).permute(
+    #         0, 1, 3, 4, 2).contiguous()  # (batch,c, t, h, w/2+1, 2)
+    #
+    #     output = torch.irfft(ffted, signal_ndim=2,
+    #                          signal_sizes=r_size[2:], normalized=True)
+    #
+    #     return output
+
     def forward(self, x):
+        print(f'x.shape: {x.shape}')
+        print(f'in_channels: {self.in_channels}, out_channels: {self.out_channels}')
         batch, c, h, w = x.size()
         r_size = x.size()
 
-        # (batch, c, h, w/2+1, 2)
-        ffted = torch.rfft(x, signal_ndim=2, normalized=True)
-        # (batch, c, 2, h, w/2+1)
-        ffted = ffted.permute(0, 1, 4, 2, 3).contiguous()
-        ffted = ffted.view((batch, -1,) + ffted.size()[3:])
-
-        ffted = self.conv_layer(ffted)  # (batch, c*2, h, w/2+1)
-        ffted = self.relu(self.bn(ffted))
-
-        ffted = ffted.view((batch, -1, 2,) + ffted.size()[2:]).permute(
-            0, 1, 3, 4, 2).contiguous()  # (batch,c, t, h, w/2+1, 2)
-
-        output = torch.irfft(ffted, signal_ndim=2,
-                             signal_sizes=r_size[2:], normalized=True)
-
-        return output
+        # (batch, c, h, w/2+1) complex number
+        y = torch.fft.rfft2(x, norm='ortho')
+        y_r, y_i = y.real, y.imag
+        y = torch.concat((y_r, y_i), dim=1)
+        y = self.conv_layer(y)
+        y = self.bn(y)
+        y = self.relu(y)
+        y_r, y_i = torch.split(y, self.out_channels, dim=1)
+        y = torch.stack((y_r, y_i), dim=4)
+        y = torch.view_as_complex(y)
+        z = torch.fft.irfft2(y, s=r_size[2:], norm='ortho')
+        return z
 
 
 class SpectralTransform(nn.Module):
@@ -105,10 +127,10 @@ class SpectralTransform(nn.Module):
             split_no = 2
             split_s_h = h // split_no
             split_s_w = w // split_no
-            xs = torch.cat(torch.split(
-                x[:, :c // 4], split_s_h, dim=-2), dim=1).contiguous()
+            xs = torch.cat(torch.split(x[:, :c // 4], split_s_h, dim=-2), dim=1).contiguous()
             xs = torch.cat(torch.split(xs, split_s_w, dim=-1),
                            dim=1).contiguous()
+            print(f'x: {x.shape}, xs: {xs.shape}')
             xs = self.lfu(xs)
             xs = xs.repeat(1, 1, split_no, split_no).contiguous()
         else:
@@ -129,10 +151,10 @@ class FFC(nn.Module):
         assert stride == 1 or stride == 2, "Stride should be 1 or 2."
         self.stride = stride
 
-        in_cg = int(in_channels * ratio_gin)
-        in_cl = in_channels - in_cg
-        out_cg = int(out_channels * ratio_gout)
-        out_cl = out_channels - out_cg
+        in_cg = int(in_channels * ratio_gin) # 0
+        in_cl = in_channels - in_cg # 1
+        out_cg = int(out_channels * ratio_gout) # 16
+        out_cl = out_channels - out_cg # 16
         # groups_g = 1 if groups == 1 else int(groups * ratio_gout)
         # groups_l = 1 if groups == 1 else groups - groups_g
 
@@ -142,24 +164,36 @@ class FFC(nn.Module):
         module = nn.Identity if in_cl == 0 or out_cl == 0 else nn.Conv2d
         self.convl2l = module(in_cl, out_cl, kernel_size,
                               stride, padding, dilation, groups, bias)
+
         module = nn.Identity if in_cl == 0 or out_cg == 0 else nn.Conv2d
         self.convl2g = module(in_cl, out_cg, kernel_size,
                               stride, padding, dilation, groups, bias)
+
         module = nn.Identity if in_cg == 0 or out_cl == 0 else nn.Conv2d
         self.convg2l = module(in_cg, out_cl, kernel_size,
                               stride, padding, dilation, groups, bias)
+
         module = nn.Identity if in_cg == 0 or out_cg == 0 else SpectralTransform
         self.convg2g = module(
             in_cg, out_cg, stride, 1 if groups == 1 else groups // 2, enable_lfu)
 
     def forward(self, x):
         x_l, x_g = x if type(x) is tuple else (x, 0)
+        print(f'x_l: {x_l.shape}, x_g: {x_g if isinstance(x_g, int) else x_g.shape}')
         out_xl, out_xg = 0, 0
 
         if self.ratio_gout != 1:
-            out_xl = self.convl2l(x_l) + self.convg2l(x_g)
+            l2l = self.convl2l(x_l)
+            g2l = self.convg2l(x_g)
+            print(f'ffc: l2l: {l2l.shape}, g2l: {g2l if isinstance(g2l, int) else g2l.shape}')
+            out_xl = l2l + g2l
         if self.ratio_gout != 0:
-            out_xg = self.convl2g(x_l) + self.convg2g(x_g)
+            l2g = self.convl2g(x_l)
+            g2g = self.convg2g(x_g)
+            print(f'ffc: l2g: {l2g.shape}, g2g: {g2g if isinstance(g2g, int) else g2g.shape}')
+            out_xg = l2g + g2g
+
+        print(f'ffc: out_xl: {out_xl.shape}, out_xg: {out_xg.shape}.')
 
         return out_xl, out_xg
 
@@ -187,6 +221,8 @@ class FFC_BN_ACT(nn.Module):
 
     def forward(self, x):
         x_l, x_g = self.ffc(x)
+        print(f'ffc_bn_act: x_l: {x_l.shape}, x_g: {x_g.shape}')
         x_l = self.act_l(self.bn_l(x_l))
         x_g = self.act_g(self.bn_g(x_g))
+        print('ffc_bn_act finished.')
         return x_l, x_g
